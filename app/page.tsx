@@ -31,33 +31,40 @@ export default function Login() {
       return;
     }
 
-    try {
-      setLoading(true);
-      await signInWithEmailAndPassword(auth, email, password);
-      toast.success('Login successful!');
-      // No need to redirect here, the useEffect will handle it
-    } catch (err: any) {
-      console.error('Login error:', err);
-      switch (err.code) {
-        case 'auth/invalid-email':
-          toast.error('Invalid email format');
-          break;
-        case 'auth/user-not-found':
-          toast.error('No user found with this email');
-          break;
-        case 'auth/wrong-password':
-          toast.error('Incorrect password');
-          break;
-        case 'auth/too-many-requests':
-          toast.error('Account temporarily locked due to many failed attempts');
-          break;
-        default:
-          toast.error('Login failed. Please try again.');
-      }
-    } finally {
-      setLoading(false);
+try {
+  setLoading(true);
+  await signInWithEmailAndPassword(auth, email, password);
+  toast.success('Login successful!');
+  // No need to redirect here, the useEffect will handle it
+} catch (err: unknown) {
+  console.error('Login error:', err);
+
+  if (err instanceof Error && typeof (err as any).code === 'string') {
+    const code = (err as any).code;
+
+    switch (code) {
+      case 'auth/invalid-email':
+        toast.error('Invalid email format');
+        break;
+      case 'auth/user-not-found':
+        toast.error('No user found with this email');
+        break;
+      case 'auth/wrong-password':
+        toast.error('Incorrect password');
+        break;
+      case 'auth/too-many-requests':
+        toast.error('Account temporarily locked due to many failed attempts');
+        break;
+      default:
+        toast.error('Login failed. Please try again.');
     }
-  };
+  } else {
+    toast.error('An unexpected error occurred.');
+  }
+} finally {
+  setLoading(false);
+}
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -150,4 +157,5 @@ export default function Login() {
       </div>
     </div>
   );
+}
 }
