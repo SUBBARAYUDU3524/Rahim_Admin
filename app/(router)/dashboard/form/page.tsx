@@ -174,7 +174,8 @@ export default function ClientForm() {
                 placeholder="e.g. JOHN SMITH"
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">Enter the client's full legal name</p>
+             <p className="text-xs text-gray-500 mt-1">Enter the client&apos;s full legal name</p>
+
             </div>
             
             {/* Client ID Field */}

@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, deleteDoc, doc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
 import { db } from '@/FirebaseConfig';
-import { FiEdit2, FiTrash2, FiUser, FiHash, FiPhone, FiPlus, FiX, FiSearch, FiCalendar } from 'react-icons/fi';
+import { FiEdit2, FiTrash2, FiUser, FiHash, FiPhone, FiX, FiSearch, FiCalendar } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 
 interface Client {

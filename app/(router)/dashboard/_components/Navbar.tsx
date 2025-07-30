@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { FiHome, FiUser, FiSettings, FiLogOut, FiMenu, FiX, FiUsers, FiFileText } from 'react-icons/fi';
+import {  FiLogOut, FiMenu, FiX, FiUsers, FiFileText } from 'react-icons/fi';
 import Link from 'next/link';
 import { auth } from '@/FirebaseConfig';
 
