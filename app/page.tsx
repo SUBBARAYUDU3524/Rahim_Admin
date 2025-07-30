@@ -18,7 +18,7 @@ export default function Login() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(user => {
       if (user) {
-        router.push('/dashboard');
+        router.push('/dashboard/form');
       }
     });
     return () => unsubscribe();
