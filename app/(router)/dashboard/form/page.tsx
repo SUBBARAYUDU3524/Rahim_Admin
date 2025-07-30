@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { addDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/FirebaseConfig';
-import { FiUser, FiHash, FiPhone, FiSave, FiCalendar, FiMapPin } from 'react-icons/fi';
+import { FiUser, FiHash, FiPhone, FiSave, FiCalendar, FiMapPin, FiActivity, FiPackage, FiDollarSign } from 'react-icons/fi';
 import toast, { Toaster } from 'react-hot-toast';
 
 interface Client {
@@ -11,6 +11,9 @@ interface Client {
   mobileNum: string;
   date: string;
   place: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  stockType: 'DELIVERY' | 'SALES';
+  margin: number;
 }
 
 export default function ClientForm() {
@@ -19,7 +22,10 @@ export default function ClientForm() {
     clientId: '',
     mobileNum: '',
     date: new Date().toISOString().split('T')[0], // Default to today's date
-    place: 'TIRUPATI'
+    place: 'TIRUPATI',
+    status: 'ACTIVE',
+    stockType: 'DELIVERY',
+    margin: 0
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -29,6 +35,13 @@ export default function ClientForm() {
       [name]: name === 'clientName' || name === 'place' ? value.toUpperCase() : value 
     }));
   };
+
+const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { name, value } = e.target;
+  const numValue = Number(value); // No limit applied
+  setFormData(prev => ({ ...prev, [name]: numValue }));
+};
+
 
   const checkExistingClient = async () => {
     // Check if client ID already exists
@@ -101,7 +114,8 @@ export default function ClientForm() {
       await addDoc(collection(db, 'clients-data'), {
         ...formData,
         clientName: formData.clientName.toUpperCase(),
-        place: formData.place.toUpperCase()
+        place: formData.place.toUpperCase(),
+        margin: Number(formData.margin) // Ensure margin is stored as number
       });
       
       toast.success('Client added successfully!', {
@@ -116,13 +130,16 @@ export default function ClientForm() {
         duration: 3000
       });
       
-      // Reset form (keep date as today and place as TIRUPATI)
+      // Reset form (keep some defaults)
       setFormData({ 
         clientName: '', 
         clientId: '', 
         mobileNum: '',
         date: new Date().toISOString().split('T')[0],
-        place: 'TIRUPATI'
+        place: 'TIRUPATI',
+        status: 'ACTIVE',
+        stockType: 'DELIVERY',
+        margin: 0
       });
       
     } catch (error) {
@@ -174,8 +191,7 @@ export default function ClientForm() {
                 placeholder="e.g. JOHN SMITH"
                 required
               />
-             <p className="text-xs text-gray-500 mt-1">Enter the client&apos;s full legal name</p>
-
+              <p className="text-xs text-gray-500 mt-1">Enter the client's full legal name</p>
             </div>
             
             {/* Client ID Field */}
@@ -216,6 +232,25 @@ export default function ClientForm() {
               <p className="text-xs text-gray-500 mt-1">10-digit number without country code</p>
             </div>
 
+            {/* Client Status Field */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                <FiActivity className="text-blue-500" />
+                Client Status
+              </label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm text-gray-900"
+                required
+              >
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="INACTIVE">INACTIVE</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Set client account status</p>
+            </div>
+
             {/* Date Field */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
@@ -231,6 +266,43 @@ export default function ClientForm() {
                 required
               />
               <p className="text-xs text-gray-500 mt-1">Select the date</p>
+            </div>
+
+            {/* Stock Type Field */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                <FiPackage className="text-blue-500" />
+                Stock Type
+              </label>
+              <select
+                name="stockType"
+                value={formData.stockType}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm text-gray-900"
+                required
+              >
+                <option value="DELIVERY">DELIVERY STOCK</option>
+                <option value="SALES">STOCK SALES</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Select the stock type</p>
+            </div>
+
+            {/* Client Margin Field */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                <FiDollarSign className="text-blue-500" />
+                Client Margin (₹)
+              </label>
+              <input
+                type="number"
+                name="margin"
+                value={formData.margin}
+                onChange={handleNumberChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm text-gray-900 placeholder-gray-400"
+                placeholder="50"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">Enter margin </p>
             </div>
 
             {/* Place Field */}

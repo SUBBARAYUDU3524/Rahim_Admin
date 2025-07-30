@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, deleteDoc, doc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
 import { db } from '@/FirebaseConfig';
-import { FiEdit2, FiTrash2, FiUser, FiHash, FiPhone, FiX, FiSearch, FiCalendar } from 'react-icons/fi';
+import { FiEdit2, FiTrash2, FiUser, FiHash, FiPhone, FiX, FiSearch, FiCalendar, FiActivity, FiPackage, FiDollarSign, FiMapPin } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 
 interface Client {
@@ -12,6 +12,10 @@ interface Client {
   mobileNum: string;
   date: string;
   slNo: number;
+  status: 'ACTIVE' | 'INACTIVE';
+  stockType: 'DELIVERY' | 'SALES';
+  margin: number;
+  place: string;
 }
 
 export default function ClientList() {
@@ -20,12 +24,15 @@ export default function ClientList() {
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Omit<Client, 'id'>>({
+  const [formData, setFormData] = useState<Omit<Client, 'id' | 'slNo'>>({
     clientName: '',
     clientId: '',
     mobileNum: '',
     date: new Date().toISOString().split('T')[0],
-    slNo: 0
+    status: 'ACTIVE',
+    stockType: 'DELIVERY',
+    margin: 0,
+    place: 'TIRUPATI'
   });
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -40,7 +47,11 @@ export default function ClientList() {
           clientId: doc.data().clientId || '',
           mobileNum: doc.data().mobileNum || '',
           date: doc.data().date || new Date().toISOString().split('T')[0],
-          slNo: snapshot.docs.length - index // Assign serial number in reverse order
+          status: doc.data().status || 'ACTIVE',
+          stockType: doc.data().stockType || 'DELIVERY',
+          margin: doc.data().margin || 0,
+          place: doc.data().place || 'TIRUPATI',
+          slNo: snapshot.docs.length - index
         }));
         setClients(clientsList);
         setLoading(false);
@@ -55,7 +66,6 @@ export default function ClientList() {
     return () => unsubscribe();
   }, []);
 
-  // Filter clients based on search term
   const filteredClients = useMemo(() => {
     if (!searchTerm) return clients;
     
@@ -64,7 +74,11 @@ export default function ClientList() {
       client.clientName.toLowerCase().includes(term) ||
       client.clientId.toLowerCase().includes(term) ||
       client.mobileNum.includes(term) ||
-      client.date.includes(term)
+      client.date.includes(term) ||
+      client.place.toLowerCase().includes(term) ||
+      client.status.toLowerCase().includes(term) ||
+      client.stockType.toLowerCase().includes(term) ||
+      client.margin.toString().includes(term)
     );
   }, [clients, searchTerm]);
 
@@ -75,7 +89,10 @@ export default function ClientList() {
       clientId: client.clientId,
       mobileNum: client.mobileNum,
       date: client.date,
-      slNo: client.slNo
+      status: client.status,
+      stockType: client.stockType,
+      margin: client.margin,
+      place: client.place
     });
     setEditMode(true);
   };
@@ -97,12 +114,18 @@ export default function ClientList() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: name === 'clientName' || name === 'place' ? value.toUpperCase() : value
     }));
+  };
+
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const numValue = Math.min(50, Math.max(0, Number(value))); // Limit between 0-50
+    setFormData(prev => ({ ...prev, [name]: numValue }));
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -112,10 +135,8 @@ export default function ClientList() {
     try {
       await toast.promise(
         updateDoc(doc(db, 'clients-data', selectedClient.id), {
-          clientName: formData.clientName,
-          clientId: formData.clientId,
-          mobileNum: formData.mobileNum,
-          date: formData.date
+          ...formData,
+          margin: Number(formData.margin)
         }),
         {
           loading: 'Updating client...',
@@ -135,6 +156,22 @@ export default function ClientList() {
     setSelectedClient(null);
   };
 
+  const getStatusBadge = (status: string) => {
+    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
+    if (status === 'ACTIVE') {
+      return <span className={`${baseClasses} bg-green-100 text-green-800`}>ACTIVE</span>;
+    }
+    return <span className={`${baseClasses} bg-red-100 text-red-800`}>INACTIVE</span>;
+  };
+
+  const getStockTypeBadge = (stockType: string) => {
+    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
+    if (stockType === 'DELIVERY') {
+      return <span className={`${baseClasses} bg-blue-100 text-blue-800`}>DELIVERY</span>;
+    }
+    return <span className={`${baseClasses} bg-purple-100 text-purple-800`}>SALES</span>;
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -148,7 +185,7 @@ export default function ClientList() {
       {/* Edit Client Modal */}
       {editMode && selectedClient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
             <div className="flex justify-between items-center p-6 border-b">
               <h3 className="text-xl font-bold text-gray-800">Edit Client</h3>
               <button 
@@ -159,9 +196,10 @@ export default function ClientList() {
               </button>
             </div>
             <form onSubmit={handleUpdate} className="p-6">
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    <FiUser className="text-blue-500" />
                     Client Name
                   </label>
                   <input
@@ -174,7 +212,8 @@ export default function ClientList() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    <FiHash className="text-blue-500" />
                     Client ID
                   </label>
                   <input
@@ -187,7 +226,8 @@ export default function ClientList() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    <FiPhone className="text-blue-500" />
                     Mobile Number
                   </label>
                   <input
@@ -200,7 +240,8 @@ export default function ClientList() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    <FiCalendar className="text-blue-500" />
                     Date
                   </label>
                   <input
@@ -211,6 +252,73 @@ export default function ClientList() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-black"
                     required
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    <FiActivity className="text-blue-500" />
+                    Status
+                  </label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-black"
+                    required
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="INACTIVE">INACTIVE</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    <FiPackage className="text-blue-500" />
+                    Stock Type
+                  </label>
+                  <select
+                    name="stockType"
+                    value={formData.stockType}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-black"
+                    required
+                  >
+                    <option value="DELIVERY">DELIVERY</option>
+                    <option value="SALES">SALES</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    <FiDollarSign className="text-blue-500" />
+                    Client Margin (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="margin"
+                    value={formData.margin}
+                    onChange={handleNumberChange}
+                    min="0"
+                    max="50"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-black"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                    <FiMapPin className="text-blue-500" />
+                    Place
+                  </label>
+                  <select
+                    name="place"
+                    value={formData.place}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-black"
+                    required
+                  >
+                    <option value="TIRUPATI">TIRUPATI</option>
+                    <option value="BANGALORE">BANGALORE</option>
+                    <option value="CHENNAI">CHENNAI</option>
+                    <option value="HYDERABAD">HYDERABAD</option>
+                    <option value="OTHER">OTHER</option>
+                  </select>
                 </div>
               </div>
               <div className="mt-6 flex justify-end space-x-3">
@@ -247,7 +355,6 @@ export default function ClientList() {
               </p>
             </div>
             
-            {/* Search Bar */}
             <div className="mt-4 md:mt-0 w-full md:w-auto">
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -277,34 +384,52 @@ export default function ClientList() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   SL No
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   <div className="flex items-center gap-2">
                     <FiCalendar className="text-blue-500" />
                     <span>Date</span>
                   </div>
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   <div className="flex items-center gap-2">
                     <FiUser className="text-blue-500" />
                     <span>Client Name</span>
                   </div>
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   <div className="flex items-center gap-2">
                     <FiHash className="text-blue-500" />
                     <span>Client ID</span>
                   </div>
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   <div className="flex items-center gap-2">
-                    <FiPhone className="text-blue-500" />
-                    <span>Mobile Number</span>
+                    <FiActivity className="text-blue-500" />
+                    <span>Status</span>
                   </div>
                 </th>
-                <th className="px-6 py-4 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <div className="flex items-center gap-2">
+                    <FiPackage className="text-blue-500" />
+                    <span>Stock Type</span>
+                  </div>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <div className="flex items-center gap-2">
+                    <FiDollarSign className="text-blue-500" />
+                    <span>Margin</span>
+                  </div>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <div className="flex items-center gap-2">
+                    <FiMapPin className="text-blue-500" />
+                    <span>Place</span>
+                  </div>
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -312,7 +437,7 @@ export default function ClientList() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                     <div className="flex flex-col items-center justify-center">
                       <FiUser className="text-gray-300 text-4xl mb-3" />
                       <p className="text-lg font-medium text-gray-400">
@@ -332,33 +457,42 @@ export default function ClientList() {
                     onMouseEnter={() => setHoveredRow(client.id)}
                     onMouseLeave={() => setHoveredRow(null)}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {client.slNo}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
                       {client.date}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        {/* <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <FiUser className="text-blue-600" />
-                        </div> */}
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
                             {client.clientName}
                           </div>
+                          <div className="text-xs text-gray-500">
+                            {client.mobileNum}
+                          </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-700 font-mono bg-gray-100 px-3 py-1 rounded-md inline-block">
                         {client.clientId}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {client.mobileNum}
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      {getStatusBadge(client.status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      {getStockTypeBadge(client.stockType)}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                      ₹ {client.margin}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {client.place}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-right">
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => handleEdit(client)}
