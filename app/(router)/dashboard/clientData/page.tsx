@@ -13,7 +13,7 @@ interface Client {
   date: string;
   slNo: number;
   status: 'ACTIVE' | 'INACTIVE';
-  stockType: 'DELIVERY' | 'SALES';
+  stockType: 'DELIVERY' | 'SALES' | 'NO STOCK';
   margin: number;
   place: string;
 }
@@ -116,6 +116,17 @@ export default function ClientList() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    
+    // If status is changed to INACTIVE, set stockType to NO STOCK
+    if (name === 'status' && value === 'INACTIVE') {
+      setFormData(prev => ({ 
+        ...prev, 
+        status: 'INACTIVE',
+        stockType: 'NO STOCK'
+      }));
+      return;
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: name === 'clientName' || name === 'place' ? value.toUpperCase() : value
@@ -168,8 +179,10 @@ export default function ClientList() {
     const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
     if (stockType === 'DELIVERY') {
       return <span className={`${baseClasses} bg-blue-100 text-blue-800`}>DELIVERY</span>;
+    } else if (stockType === 'SALES') {
+      return <span className={`${baseClasses} bg-purple-100 text-purple-800`}>SALES</span>;
     }
-    return <span className={`${baseClasses} bg-purple-100 text-purple-800`}>SALES</span>;
+    return <span className={`${baseClasses} bg-gray-100 text-gray-800`}>NO STOCK</span>;
   };
 
   if (loading) {
@@ -181,12 +194,12 @@ export default function ClientList() {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-7xl">
+    <div className="container mx-auto p-4 max-w-7xl pb-20">
       {/* Edit Client Modal */}
       {editMode && selectedClient && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
-            <div className="flex justify-between items-center p-6 border-b">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
               <h3 className="text-xl font-bold text-gray-800">Edit Client</h3>
               <button 
                 onClick={closeModal}
@@ -280,10 +293,15 @@ export default function ClientList() {
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-black"
                     required
+                    disabled={formData.status === 'INACTIVE'}
                   >
                     <option value="DELIVERY">DELIVERY</option>
                     <option value="SALES">SALES</option>
+                    <option value="NO STOCK">NO STOCK</option>
                   </select>
+                  {formData.status === 'INACTIVE' && (
+                    <p className="text-xs text-gray-500 mt-1">Inactive clients must have NO STOCK</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">

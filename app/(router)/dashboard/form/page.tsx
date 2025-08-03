@@ -12,7 +12,7 @@ interface Client {
   date: string;
   place: string;
   status: 'ACTIVE' | 'INACTIVE';
-  stockType: 'DELIVERY' | 'SALES';
+  stockType: 'DELIVERY' | 'SALES' | 'NO STOCK';
   margin: number;
 }
 
@@ -30,18 +30,38 @@ export default function ClientForm() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    
+    // If status is changed to INACTIVE, set stockType to NO STOCK
+    if (name === 'status' && value === 'INACTIVE') {
+      setFormData(prev => ({ 
+        ...prev, 
+        status: 'INACTIVE',
+        stockType: 'NO STOCK'
+      }));
+      return;
+    }
+    
     setFormData(prev => ({ 
       ...prev, 
       [name]: name === 'clientName' || name === 'place' ? value.toUpperCase() : value 
     }));
   };
 
-const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const { name, value } = e.target;
-  const numValue = Number(value); // No limit applied
-  setFormData(prev => ({ ...prev, [name]: numValue }));
-};
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const numValue = Number(value); // No limit applied
+    setFormData(prev => ({ ...prev, [name]: numValue }));
+  };
 
+  const validateClientId = (id: string) => {
+    const regex = /^H\d{6}$/;
+    return regex.test(id);
+  };
+
+  const validateMobileNumber = (num: string) => {
+    const regex = /^[6-9]\d{9}$/;
+    return regex.test(num);
+  };
 
   const checkExistingClient = async () => {
     // Check if client ID already exists
@@ -65,10 +85,25 @@ const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate client ID format
+    if (!validateClientId(formData.clientId)) {
+      toast.error('Client ID must start with H followed by exactly 6 digits (e.g. H123456)', {
+        icon: '❌',
+        style: {
+          background: '#fef2f2',
+          color: '#b91c1c',
+          border: '1px solid #fecaca',
+          padding: '16px',
+          minWidth: '250px'
+        },
+        duration: 4000
+      });
+      return;
+    }
+
     // Validate phone number format
-    const phoneRegex = /^[0-9]{10}$/;
-    if (!phoneRegex.test(formData.mobileNum)) {
-      toast.error('Please enter a valid 10-digit phone number', {
+    if (!validateMobileNumber(formData.mobileNum)) {
+      toast.error('Please enter a valid 10-digit Indian phone number starting with 6-9', {
         icon: '❌',
         style: {
           background: '#fef2f2',
@@ -191,8 +226,7 @@ const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 placeholder="e.g. JOHN SMITH"
                 required
               />
-             <p className="text-xs text-gray-500 mt-1">Enter the client&rsquo;s full legal name</p>
-
+              <p className="text-xs text-gray-500 mt-1">Enter the client&rsquo;s full legal name</p>
             </div>
             
             {/* Client ID Field */}
@@ -207,10 +241,12 @@ const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 value={formData.clientId}
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm text-gray-900 placeholder-gray-400"
-                placeholder="e.g. CL-10001"
+                placeholder="e.g. H123456"
                 required
+                pattern="H\d{6}"
+                title="Must start with H followed by 6 digits (e.g. H123456)"
               />
-              <p className="text-xs text-gray-500 mt-1">Unique identifier for the client</p>
+              <p className="text-xs text-gray-500 mt-1">Format: H followed by 6 digits (e.g. H123456)</p>
             </div>
             
             {/* Mobile Number Field */}
@@ -227,10 +263,10 @@ const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm text-gray-900 placeholder-gray-400"
                 placeholder="e.g. 9876543210 (10 digits only)"
                 required
-                pattern="[0-9]{10}"
-                title="Please enter a 10-digit phone number without spaces or special characters"
+                pattern="[6-9]\d{9}"
+                title="Please enter a valid 10-digit Indian phone number starting with 6-9"
               />
-              <p className="text-xs text-gray-500 mt-1">10-digit number without country code</p>
+              <p className="text-xs text-gray-500 mt-1">10-digit Indian number starting with 6-9</p>
             </div>
 
             {/* Client Status Field */}
@@ -281,11 +317,17 @@ const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm text-gray-900"
                 required
+                disabled={formData.status === 'INACTIVE'}
               >
                 <option value="DELIVERY">DELIVERY STOCK</option>
                 <option value="SALES">STOCK SALES</option>
+                <option value="NO STOCK">NO STOCK</option>
               </select>
-              <p className="text-xs text-gray-500 mt-1">Select the stock type</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {formData.status === 'INACTIVE' ? 
+                  "Inactive clients can't have stock" : 
+                  "Select the stock type"}
+              </p>
             </div>
 
             {/* Client Margin Field */}
@@ -303,7 +345,7 @@ const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 placeholder="50"
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">Enter margin </p>
+              <p className="text-xs text-gray-500 mt-1">Enter margin</p>
             </div>
 
             {/* Place Field */}
